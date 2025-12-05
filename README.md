@@ -13,15 +13,14 @@ A lightweight **.NET Minimal API** with **MySQL**, using raw SQL (no Entity Fram
 ### 1. Create database + user
 
 ```sql
-CREATE DATABASE food_lovers;
+CREATE DATABASE foodlovers;
 
-DROP USER IF EXISTS 'api_user'@'localhost';
-CREATE USER 'api_user'@'localhost' IDENTIFIED BY '123!';
+CREATE USER 'foodlovers'@'localhost' IDENTIFIED BY 'foodlovers';
 
-GRANT ALL PRIVILEGES ON food_lovers.* TO 'api_user'@'localhost';
+GRANT ALL PRIVILEGES ON foodlovers.* TO 'foodlovers'@'localhost';
 FLUSH PRIVILEGES;
 
 ### 2. Build commands
 
-dotnet build <br>
+dotnet build </br>
 dotnet run
