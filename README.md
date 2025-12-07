@@ -15,6 +15,8 @@ A lightweight **.NET Minimal API** with **MySQL**, using raw SQL (no Entity Fram
 ```sql
 CREATE DATABASE foodlovers;
 
+USE foodlovers;
+
 CREATE USER 'foodlovers'@'localhost' IDENTIFIED BY 'foodlovers';
 
 GRANT ALL PRIVILEGES ON foodlovers.* TO 'foodlovers'@'localhost';
