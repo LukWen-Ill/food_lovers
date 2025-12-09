@@ -384,19 +384,19 @@ async Task db_reset_to_default(Config config)
             (1, 4),  -- Double room
             (1, 5),  -- Family room
             (1, 6),  -- Family room
-            (1, 7),  -- Suite
+            (1, 8),  -- Suite
 
             -- Hotel 2
             (2, 2),  -- Single room
             (2, 4),  -- Double room
             (2, 6),  -- Family room
-            (2, 7),  -- Suite
+            (2, 8),  -- Suite
 
             -- Hotel 3
             (3, 1),  -- Single room
             (3, 3),  -- Double room
-            (3, 5);  -- Family room
-            (3, 6),  -- Suite
+            (3, 5),  -- Family room
+            (3, 8);  -- Suite
 
 
     """;
