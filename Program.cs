@@ -41,10 +41,6 @@ app.MapPost("/bookings", Bookings.Post);
 // CRUD methods for searchings
 app.MapGet("/searchings", Searchings.GetAllPackages);
 
-app.MapGet("/searchingsbycountry", async (Config config, string? country) =>
-{
-    return await Searchings.GetAllPackagesByCountry(config, country);
-});
 
 // special, reset db
 app.MapDelete("/db", db_reset_to_default);
