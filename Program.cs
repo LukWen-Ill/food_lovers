@@ -9,7 +9,6 @@ Config config = new(
 );
 
 
-
 builder.Services.AddSingleton<Config>(config);
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
@@ -18,8 +17,19 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+// swagger added
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    // Use full type name (including declaring type) so GetAll_Data in Bookings/Searchings don't clash
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+});
+
 var app = builder.Build();
 app.UseSession();
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // REST routes
 // session / login / logout examples (auth resource)
