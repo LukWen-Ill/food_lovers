@@ -71,6 +71,9 @@ async Task db_reset_to_default(Config config)
         DROP TABLE IF EXISTS countries;
         DROP TABLE IF EXISTS users;
 
+        -- db views dropped before created
+        DROP VIEW IF EXISTS Room_type;
+
         SET FOREIGN_KEY_CHECKS = 1; -- control for database foreign key constraints. example: cant drop a parent table if a child table references it. = 1 enables it
 
         -- TABLES CREATED HERE
