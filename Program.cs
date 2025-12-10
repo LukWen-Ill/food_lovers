@@ -188,14 +188,14 @@ async Task db_reset_to_default(Config config)
 
         -- BOOKED_ROOMS table
         CREATE TABLE booked_rooms (
-            id INT PRIMARY KEY AUTO_INCREMENT,
             booking_id INT NOT NULL,
             room_id INT NOT NULL,
-            quantity INT NOT NULL,
             price_per_night DECIMAL(10, 2) NOT NULL,
+            PRIMARY KEY (booking_id, room_id),
             FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
             FOREIGN KEY (room_id) REFERENCES rooms(id)
         );
+
         """;
 
     string view = """
@@ -370,10 +370,10 @@ async Task db_reset_to_default(Config config)
         -- ===========================
         -- BOOKED ROOMS
         -- ===========================
-        INSERT INTO booked_rooms (id, booking_id, room_id, quantity, price_per_night) VALUES
-        (1, 1, 1, 1, 150.00),
-        (2, 2, 5, 1, 110.00),
-        (3, 3, 7, 2, 200.00);
+        INSERT INTO booked_rooms (id, booking_id, room_id, price_per_night) VALUES
+        (1, 1, 1, 150.00),
+        (2, 2, 5, 110.00),
+        (3, 3, 7, 200.00);
 
         INSERT INTO rooms (hotel_id, capacity)
         VALUES
