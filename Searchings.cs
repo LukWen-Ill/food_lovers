@@ -364,23 +364,24 @@ namespace server
                     h.name AS hotel_name,
                     c.name AS country,
                     d.city,
-                    SUM(r.capacity) AS total_hotel_capacity,
-                    COUNT(*) AS total_available_rooms
+                    SUM(rt.capacity) AS total_hotel_capacity,
+                    COUNT(r.hotel_id) AS total_available_rooms
                 FROM hotels h
-                    JOIN destinations AS d ON d.id = h.destination_id
-                    JOIN countries AS c ON c.id = d.country_id
-                    JOIN rooms AS r On r.hotel_id = h.id
-                    LEFT JOIN booked_rooms AS br 
-                        ON br.hotel_id = r.hotel_id 
-                        AND br.room_number = r.room_number
-                    LEFT JOIN bookings AS b -- filter out rooms that are booked during this timespan
-                        ON b.id = br.booking_id 
-                        AND b.checkin < @checkout 
-                        AND b.checkout > @checkin
-                WHERE b.id IS NULL -- filter out the rooms that are booked
-                  AND LOWER(c.name) = LOWER(@country)
+                JOIN destinations AS d ON d.id = h.destination_id
+                JOIN countries AS c ON c.id = d.country_id
+                JOIN rooms AS r ON r.hotel_id = h.id
+                JOIN room_types AS rt ON rt.id = r.roomtype_id
+                LEFT JOIN booked_rooms AS br 
+                    ON br.hotel_id = r.hotel_id 
+                    AND br.room_number = r.room_number
+                LEFT JOIN bookings AS b -- filter out rooms that are booked during this timespan
+                    ON b.id = br.booking_id 
+                    AND b.checkin < @checkout 
+                    AND b.checkout > @checkin
+                WHERE br.booking_id IS NULL -- filter out the rooms that are booked
+                AND LOWER(c.name) = LOWER(@country)
                 GROUP BY h.id, h.name, c.name, d.city
-                HAVING SUM(r.capacity) >= @total_travelers; -- filter out hotels that dont have the capacity
+                HAVING SUM(rt.capacity) >= @total_travelers; -- filter out hotels that dont have the capacity
             ";
 
             using var conn = new MySqlConnection(config.db);
