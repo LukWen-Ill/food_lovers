@@ -289,8 +289,8 @@ namespace server
         public static async Task<List<HotelSearchResult>> GetAllHotelsByPreference(
             Config config,
             string country,
-            DateOnly checkin,
-            DateOnly checkout,
+            DateTime checkin,
+            DateTime checkout,
             int total_travelers)
         {
             List<HotelSearchResult> result = new();
