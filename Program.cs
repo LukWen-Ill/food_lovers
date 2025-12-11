@@ -96,6 +96,7 @@ async Task db_reset_to_default(Config config)
         DROP TABLE IF EXISTS trip_packages;
         DROP TABLE IF EXISTS destinations;
         DROP TABLE IF EXISTS facilities;
+        DROP TABLE IF EXISTS room_types;
         DROP TABLE IF EXISTS countries;
         DROP TABLE IF EXISTS users;
 
@@ -177,15 +178,26 @@ async Task db_reset_to_default(Config config)
             FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE,
             FOREIGN KEY (poi_distance_id) REFERENCES poi_distances(id) ON DELETE CASCADE
         );
+       
+        -- ROOM_TYPE table (lookup table for room types)
+        CREATE TABLE room_types (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        type_name VARCHAR(50) NOT NULL UNIQUE,
+        capacity INT NOT NULL,  -- Fixed capacity
+        CHECK (capacity > 0)
+        );
 
         -- ROOMS table (each room type belongs to a hotel)
         CREATE TABLE rooms (
-            hotel_id   INT NOT NULL,
-            room_number INT NOT NULL,
-            capacity    INT NOT NULL,
-            PRIMARY KEY (hotel_id, room_number),
-            FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
+        hotel_id INT NOT NULL,
+        room_number INT NOT NULL,
+        roomtype_id INT NOT NULL,
+        PRIMARY KEY (hotel_id, room_number),
+        FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE,
+        FOREIGN KEY (roomtype_id) REFERENCES room_types(id)
         );
+
+
 
         -- FACILITIES table
         CREATE TABLE facilities (
@@ -228,26 +240,6 @@ async Task db_reset_to_default(Config config)
 
         """;
 
-    string view = """
-        
-        CREATE VIEW Room_type AS
-        SELECT 
-        h.name AS HotelName,
-        r.hotel_id,
-        r.room_number, 
-        CASE 
-        WHEN r.capacity <= 2 THEN 'Single room'
-        WHEN r.capacity <= 4 THEN 'Double room'
-        WHEN r.capacity <= 6 THEN 'Family room'
-        ELSE 'Suite'
-        END AS Room_type, 
-        r.capacity
-
-        FROM ROOMS AS r
-        JOIN HOTELS AS h ON h.id = r.hotel_id
-
-
-        """;
     string seed = """
 
         SET FOREIGN_KEY_CHECKS = 0;
@@ -353,33 +345,44 @@ async Task db_reset_to_default(Config config)
         (11, 4, 11, 18.0);
 
         -- ===========================
+        -- ROOM TYPES (lookup table)
+        -- ===========================
+        INSERT INTO room_types (id, type_name, capacity) VALUES
+            (1, 'Single room', 2),
+            (2, 'Double room', 4),
+            (3, 'Family room', 6),
+            (4, 'Suite', 8);
+
+        -- ===========================
         -- ROOMS (room types per hotel)
         -- ===========================
-         INSERT INTO rooms (hotel_id, room_number, capacity) VALUES
-        -- Hotel 1 rooms 1–7
-            (1, 1, 1),
-            (1, 2, 2),
-            (1, 3, 3),
-            (1, 4, 4),
-            (1, 5, 5),
-            (1, 6, 6),
-            (1, 7, 8),
 
-        -- Hotel 2 rooms 1–4
-            (2, 1, 2),
-            (2, 2, 4),
-            (2, 3, 6),
-            (2, 4, 8),
+        INSERT INTO rooms (hotel_id, room_number, roomtype_id) VALUES
+            -- Hotel 1: Mixed room types (7 rooms)
+            (1, 101, 1),  -- Single
+            (1, 102, 1),  -- Single
+            (1, 103, 2),  -- Double
+            (1, 104, 2),  -- Double
+            (1, 105, 3),  -- Family
+            (1, 106, 3),  -- Family
+            (1, 107, 4),  -- Suite
 
-        -- Hotel 3 rooms 1–4
-            (3, 1, 1),
-            (3, 2, 3),
-            (3, 3, 5),
-            (3, 4, 8),
+            -- Hotel 2: Mostly family-oriented (4 rooms)
+            (2, 201, 2),  -- Double
+            (2, 202, 2),  -- Double
+            (2, 203, 3),  -- Family
+            (2, 204, 4),  -- Suite
 
-        -- Hotel 4 rooms 1–2 (from earlier seed)
-            (4, 1, 2),
-            (4, 2, 4);
+            -- Hotel 3: Budget hotel (4 rooms)
+            (3, 301, 1),  -- Single
+            (3, 302, 1),  -- Single
+            (3, 303, 2),  -- Double
+            (3, 304, 2),  -- Double
+
+            -- Hotel 4: Luxury resort (2 rooms)
+            (4, 401, 3),  -- Family
+            (4, 402, 4);  -- Suite
+
 
         -- ===========================
         -- FACILITIES
@@ -421,15 +424,14 @@ async Task db_reset_to_default(Config config)
         -- BOOKED ROOMS
         -- ===========================
         INSERT INTO booked_rooms (booking_id, hotel_id, room_number, price_per_night) VALUES
-        (1, 1, 1, 150.00),
-        (2, 3, 1, 110.00),
-        (3, 4, 1, 200.00);
+        (1, 1, 101, 150.00),  -- Booking 1: Hotel 1, Room 101
+        (2, 3, 301, 110.00),  -- Booking 2: Hotel 3, Room 301
+        (3, 4, 401, 200.00);  -- Booking 3: Hotel 4, Room 401
 
     
     """;
 
     await MySqlHelper.ExecuteNonQueryAsync(config.db, tables);
-    await MySqlHelper.ExecuteNonQueryAsync(config.db, view);
     await MySqlHelper.ExecuteNonQueryAsync(config.db, seed);
 }
 
