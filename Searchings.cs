@@ -217,7 +217,7 @@ namespace server
             }
 
             query += " GROUP BY tp.id, tp.name, tp.description, tp.price_per_person";
-            query += " ORDER BY tp.name ASC;";
+            query += " ORDER BY MIN(c.name) ASC;";
             cmd.CommandText = query;
 
             using var reader = await cmd.ExecuteReaderAsync();
