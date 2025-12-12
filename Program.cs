@@ -34,35 +34,34 @@ app.UseSwaggerUI();
 
 // REST routes
 // session / login / logout examples (auth resource)
-app.MapGet("/login", Login.Get);
-app.MapPost("/login", Login.Post);
-app.MapDelete("/login", Login.Delete);
+app.MapGet("/login", Login.Get); // check if logged in
+app.MapPost("/login", Login.Post); // log in
+app.MapDelete("/login", Login.Delete); // log out
 
 // CRUD examples (user resource)
-app.MapGet("/users", Users.Get);
-app.MapGet("/users/{id}", Users.GetById);
-app.MapPost("/users", Users.Post); //As an anomymous user I want to create an account, so I that can become a registered user
-app.MapPut("/users/{id}", Users.Put);
-app.MapDelete("/users/{id}", Users.Delete);
+app.MapGet("/users", Users.Get); // get all users
+app.MapGet("/users/{id}", Users.GetById); // get user by id
+app.MapPost("/users", Users.Post); // create new user
+app.MapPut("/users/{id}", Users.Put); // update user
+app.MapDelete("/users/{id}", Users.Delete); // delete user
 
 // CRUD methods for bookings
-app.MapGet("/bookings", Bookings.GetAll);
-app.MapPost("/bookings", Bookings.Post);
+app.MapGet("/bookings", Bookings.GetAll); 
+app.MapPost("/bookings", Bookings.Post); 
 app.MapDelete("/bookings/{id:int}", Bookings.Delete);
+app.MapGet("/bookings/user", Bookings.GetAllPackagesForUser); // get all packages booked by a user
 
 
-// CRUD methods for searchings
-app.MapGet("/searchings/user", Searchings.GetAllPackagesForUser);
 
 
 // CRUD Methods for packages
-app.MapGet("/packages", Searchings.GetPackages);
+app.MapGet("/packages", Searchings.GetPackages); // get all packages with optional filters
 //  GET http://localhost:5240/packages?country=Italy
 //  GET http://localhost:5240/packages?maxPrice=1000
 //  GET http://localhost:5240/packages?search=street food
 //  GET http://localhost:5240/packages?country=France&minStars=4&maxPrice=1500
 
-app.MapGet("/search/hotels", Searchings.GetAllHotelsByPreference);
+app.MapGet("/search/hotels", Searchings.GetAllHotelsByPreference); //
 app.MapGet("/search/hotels/filters", Searchings.GetFilters);
 
 
