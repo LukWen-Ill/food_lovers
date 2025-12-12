@@ -1,4 +1,5 @@
 using MySql.Data.MySqlClient;
+using MySqlX.XDevAPI.Common;
 
 namespace server;
 
@@ -178,41 +179,60 @@ class Bookings
         decimal total
     );
 
-    public static async Task<Receipt?> GetTotalCostByBooking(Config config, int bookingsId, HttpContext ctx)
+    public static async Task<List<Receipt>?> GetTotalCostByBooking(Config config, HttpContext ctx, int bookingsId)
     {
+
+        List<Receipt> result = new();
+
         int? userId = ctx.Session.GetInt32("user_id");
         if (userId is null)
         {
-            return Results.Unauthorized();
+            return null;
         }
 
         string query = """
-        SELECT
-        booking,
-        name,
-        package,
-        travelers,
-        price_per_person,
-        nights,
-        total
-        FROM receipts
-        WHERE booking = @bookingsId
+            SELECT
+            booking,
+            name,
+            package,
+            travelers,
+            price_per_person,
+            nights,
+            total
+            FROM receipt
+            WHERE booking = @bookingsid
         """;
-        using var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query, new MySqlParameter("@bookingsId", bookingsId));
-        if (await reader.ReadAsync())
-        {
-            return new Receipt(
-                reader.GetInt32(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetInt32(3),
-                reader.GetDecimal(4),
-                reader.GetInt32(5),
-                reader.GetDecimal(6)
-            );
-            return Results.Ok(receipt);
-        }
-        return null;
-    }
 
+        var parameters = new MySqlParameter[]
+        {
+            new("@bookingsid", bookingsId)
+        };
+
+        using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query, parameters))
+        {
+            while (reader.Read())
+            {
+
+                int booking = reader.GetInt32(0);
+                string name = reader.GetString(1);
+                string package = reader.GetString(2);
+                int travelers = reader.GetInt32(3);
+                decimal price_per_person = reader.GetDecimal(4);
+                int nights = reader.GetInt32(5);
+                decimal total = reader.GetDecimal(6);
+
+                result.Add(new Receipt(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetInt32(3),
+                    reader.GetDecimal(4),
+                    reader.GetInt32(5),
+                    reader.GetDecimal(6)
+                ));
+            }
+        }
+
+        return result;
+    }
 }
