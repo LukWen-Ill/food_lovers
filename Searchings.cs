@@ -24,7 +24,7 @@ namespace server
             int TotalAvailableCapacity,
             int TotalAvailableRooms
         );
-        public record ApplyFiltersRequest(
+        public record HotelFilterRequest(
             string Country,
             DateTime Checkin,
             DateTime Checkout,
@@ -114,7 +114,7 @@ namespace server
         }
         public static async Task<List<HotelFilterResult>> GetAllHotelsByFilters(
             Config config,
-            ApplyFiltersRequest filter)
+            HotelFilterRequest filter)
         {
             List<HotelFilterResult> result = new();
 
@@ -377,7 +377,7 @@ namespace server
                                         .ToList();
             }
 
-            var filter = new ApplyFiltersRequest(
+            var filter = new HotelFilterRequest(
                 country,
                 checkin,
                 checkout,
