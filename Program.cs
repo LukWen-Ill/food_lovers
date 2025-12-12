@@ -61,7 +61,6 @@ app.MapGet("/searchings/SuggestedCountry", Searchings.GetSuggestedByCountry);
 
 
 app.MapGet("/search/hotels", Searchings.GetAllHotelsByPreference);
-
 app.MapGet("/search/hotels/filters", async (
     Config config,
     string country,
