@@ -74,7 +74,7 @@ app.MapGet("/packages", Searchings.GetPackages); // get all packages with option
 //  GET http://localhost:5240/packages?country=France&minStars=4&maxPrice=1500
 
 app.MapGet("/hotels", Searchings.GetFilters);
-app.MapGet("/admin/hotels", Searchings.GetAdminView); 
+app.MapGet("/admin/hotels", Searchings.GetAdminView);
 app.MapGet("/admin/hotels/{id}", Searchings.GetHotelByID);
 
 
