@@ -62,7 +62,7 @@ app.MapGet("/searchings/user", Searchings.GetAllPackagesForUser);
 
 // CRUD Methods for packages
 app.MapGet("/searchings/SuggestedCountry", Searchings.GetSuggestedByCountry);
-
+app.MapPost("/searchings/customizedPackage", Searchings.GetCustomizedPackage);
 
 app.MapGet("/search/hotels", Searchings.GetAllHotelsByPreference);
 /*
