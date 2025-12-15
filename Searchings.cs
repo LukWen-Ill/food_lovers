@@ -1,10 +1,11 @@
 using MySql.Data.MySqlClient;
+using MySqlX.XDevAPI.Common;
 
 namespace server
 {
     public static class Searchings
     {
-        
+
 
         public record PackageSearchResult(
             int PackageId,
@@ -51,6 +52,26 @@ namespace server
             int? MinStars = null,
             decimal? MaxPrice = null
         );
+
+        public record AdminTrips(
+        int Id,
+        string Name,
+        string Description,
+        decimal PricePerPerson
+        );
+
+        public record TripByID(
+        string Country,
+        string City,
+        int Id,
+        string Name,
+        string Description,
+        decimal PricePerPerson,
+        int Nights
+        );
+
+
+
 
         public static async Task<List<HotelFilterResult>> GetAllHotelsFiltered(
             Config config,
@@ -125,14 +146,14 @@ namespace server
             if (filter.Facilities?.Count > 0)
             {
                 query += " HAVING COUNT(DISTINCT CASE WHEN f.name IN (";
-                
+
                 for (int i = 0; i < filter.Facilities.Count; i++)
                 {
                     query += i > 0 ? ", " : "";
                     query += $"@facility{i}";
                     cmd.Parameters.AddWithValue($"@facility{i}", filter.Facilities[i]);
                 }
-                
+
                 query += $") THEN f.name END) = {filter.Facilities.Count}";
                 query += " AND SUM(rt.capacity) >= @total_travelers";
             }
@@ -171,7 +192,7 @@ namespace server
         /// <summary>
         /// Get all packages with optional filters.
         /// </summary>
-        
+
         public static async Task<List<PackageSearchResult>> GetAllPackagesFiltered(
             Config config,
             PackageFilterRequest filter)
@@ -299,7 +320,7 @@ namespace server
                 var cuisine = reader["cuisine"]?.ToString() ?? "";
 
                 result.Add(new
-                {   
+                {
                     HotelName = hotelname,
                     PackageId = id,
                     Name = name,
@@ -345,7 +366,7 @@ namespace server
             if (!await reader.ReadAsync())
                 throw new Exception("Package not found");
 
-            return new CustomizedPackage( 
+            return new CustomizedPackage(
                 reader.GetInt32(0), // ID
                 reader.GetString(1), // Name
                 reader.IsDBNull(2) ? "" : reader.GetString(2), // description
@@ -355,7 +376,7 @@ namespace server
             );
         }
 
-        
+
         public static async Task<IResult> GetFilters(
             Config config,
             string country,
@@ -387,10 +408,95 @@ namespace server
                 minStars,
                 maxDistanceToCenter
             );
-            
+
             var hotels = await GetAllHotelsFiltered(config, filter);
             return Results.Ok(hotels);
         }
 
+        public static async Task<IResult> GetAllTrips(Config config, HttpContext ctx)
+        {
+            int? adminId = ctx.Session.GetInt32("admin_id");
+            if (adminId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            List<AdminTrips> result = new();
+
+            string query = """
+            SELECT
+            id,
+            name,
+            description,
+            price_per_person
+            FROM
+            trip_packages
+            """;
+
+            using var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query);
+            while (await reader.ReadAsync())
+            {
+                result.Add(new AdminTrips(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetDecimal(3)
+                ));
+            }
+
+            return Results.Ok(result);
+        }
+
+
+        public static async Task<IResult> GetAllTripsByID(Config config, HttpContext ctx, int id)
+        {
+            int? adminId = ctx.Session.GetInt32("admin_id");
+            if (adminId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            string query = """
+            SELECT
+            c.name,
+            d.city,
+            tp.id,
+            tp.name,
+            tp.description,
+            tp.price_per_person,
+            pi.nights
+            FROM trip_packages AS tp
+            JOIN package_itineraries AS pi ON tp.id = pi.package_id
+            JOIN destinations AS d ON pi.destination_id = d.id
+            JOIN countries AS c ON d.country_id = c.id
+            WHERE tp.id = @id;
+            """;
+
+            var parameters = new MySqlParameter[]
+            {
+                new("@id", id)
+            };
+
+            var result = new List<TripByID>();
+
+
+            using var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query, parameters);
+            while (await reader.ReadAsync())
+            {
+                result.Add(new TripByID(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetInt32(2),
+                    reader.GetString(3),
+                    reader.GetString(4),
+                    reader.GetDecimal(5),
+                    reader.GetInt32(6)
+                ));
+            }
+
+            return Results.Ok(result);
+        }
+
     }
+
 }
