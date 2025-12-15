@@ -37,7 +37,7 @@ class Bookings
     // GET ALL BOOKINGS
     public static async Task<IResult> GetAll(Config config, HttpContext ctx)
     {
-        int? adminId = ctx.Session.GetInt32("admin_Id");
+        int? adminId = ctx.Session.GetInt32("admin_id");
         if (adminId is null)
         {
             return Results.Unauthorized();

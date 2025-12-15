@@ -10,7 +10,7 @@ class Users
     static List<User> users = new();
     public record Get_Data(int id, string Email, string Password);
     //List<Get_Data> -> asynd Task<List<Get_Data>> Get()
-    public static async Task<IResult> Get(Get_Data body, Config config, HttpContext ctx)
+    public static async Task<IResult> Get( Config config, HttpContext ctx)
     {
         int? adminId = ctx.Session.GetInt32("admin_id");
          if (adminId is null)
