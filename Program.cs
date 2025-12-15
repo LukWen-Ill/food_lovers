@@ -54,7 +54,8 @@ app.MapDelete("/bookings/{id:int}", Bookings.Delete);
 app.MapGet("/bookings/user", Bookings.GetAllPackagesForUser); // get all packages booked by a user
 
 
-
+app.MapGet("/admin/facilities", Searchings.GetAllFacilities);
+app.MapGet("/admin/facilities/{id}", Searchings.GetFacilityByID);
 
 // CRUD Methods for packages
 app.MapGet("/searchings/SuggestedCountry", Searchings.GetSuggestedByCountry);
