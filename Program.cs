@@ -128,13 +128,10 @@ async Task db_reset_to_default(Config config)
         DROP TABLE IF EXISTS trip_packages;
         DROP TABLE IF EXISTS destinations;
         DROP TABLE IF EXISTS facilities;
-        DROP TABLE IF EXISTS room_types;
         DROP TABLE IF EXISTS countries;
         DROP TABLE IF EXISTS users;
-        DROP VIEW IF EXISTS receipt;
+        DROP TABLE IF EXISTS room_types;
 
-        -- db views dropped before created
-        DROP VIEW IF EXISTS Room_type;
 
         SET FOREIGN_KEY_CHECKS = 1; -- control for database foreign key constraints. example: cant drop a parent table if a child table references it. = 1 enables it
 
@@ -273,6 +270,8 @@ async Task db_reset_to_default(Config config)
         """;
 
     string views = """
+        DROP VIEW IF EXISTS receipt;
+
         CREATE VIEW receipt AS (
         SELECT
         b.id AS booking,
