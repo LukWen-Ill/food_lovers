@@ -74,8 +74,14 @@ class Users
     }
     public record Put_Args(int Id, string Email, string Password);
 
-    public static async Task Put(Put_Args user, Config config)
+    public static async Task<IResult> Put(Put_Args user, Config config, HttpContext ctx)
     {
+
+        int? adminId = ctx.Session.GetInt32("admin_id");
+         if (adminId is null)
+    {
+        return Results.Unauthorized();
+    }
         string query = """
         UPDATE users 
         SET email = @email, password = @password 
@@ -90,6 +96,9 @@ class Users
         };
 
         await MySqlHelper.ExecuteNonQueryAsync(config.db, query, parameters);
+
+        return Results.Ok();
+
     }
 
 }

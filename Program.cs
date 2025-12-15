@@ -474,6 +474,7 @@ async Task db_reset_to_default(Config config)
         -- ===========================
         INSERT INTO booked_rooms (booking_id, hotel_id, room_number, price_per_night) VALUES
         (1, 1, 101, 150.00),  -- Booking 1: Hotel 1, Room 101
+        (1, 2, 201, 150.00),  -- Booking 1: Hotel 2, Room 201
         (2, 3, 301, 110.00),  -- Booking 2: Hotel 3, Room 301
         (3, 4, 401, 200.00);  -- Booking 3: Hotel 4, Room 401
 

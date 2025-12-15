@@ -25,6 +25,16 @@ class Bookings
         BookingStatus Status
     );
 
+        public record GetAllData(
+        string user,
+        int UserId,
+        int PackageId,
+        DateTime Checkin,
+        DateTime Checkout,
+        int NumberOfTravelers,
+        BookingStatus Status
+    );
+
         // DTO FOR POST BOOKINGS (doesn't take in id or userID)
        public record Post_Args(
         int PackageId,
@@ -44,18 +54,19 @@ class Bookings
         }
 
 
-        List<GetAll_Data> result = new();
+        List<GetAllData> result = new();
 
         string query = """
-            SELECT id, user_id, package_id, checkin, checkout, number_of_travelers, status
-            FROM bookings;
+            SELECT CONCAT(u.first_name, ' ', u.last_name) AS User, user_id, package_id, checkin, checkout, number_of_travelers, status
+            FROM bookings AS b
+            JOIN users AS u ON b.user_id = u.id;
         """;
 
         using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query))
         {
             while (reader.Read())
             {
-                int id = reader.GetInt32(0);
+                string user = reader.GetString(0);
                 int userId = reader.GetInt32(1);
                 int packageId = reader.GetInt32(2);
                 DateTime checkin = reader.GetDateTime(3);
@@ -65,8 +76,8 @@ class Bookings
 
                 BookingStatus status = Enum.Parse<BookingStatus>(statusString, ignoreCase: true);
 
-                result.Add(new GetAll_Data(
-                    id,
+                result.Add(new GetAllData(
+                    user,
                     userId,
                     packageId,
                     checkin,
