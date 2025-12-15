@@ -300,7 +300,7 @@ class Bookings
         return Results.NoContent();
     }
 
-}
+
 
 
 // definerar datan som ska visas till user
@@ -368,3 +368,4 @@ public static async Task<IResult> GetDetails(int id, Config config)
     }
      
 }
+
