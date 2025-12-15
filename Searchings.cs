@@ -14,7 +14,6 @@ namespace server
             int Stars,
             decimal PackagePrice
         );
-
         public record Get_All_Packages_For_User(
             int Id,
             int UserId,
@@ -24,8 +23,6 @@ namespace server
             int NumberOfTravelers,
             BookingStatus Status
         );
-
-
         // More detailed package data (description + distances + POI)
         public record PackageDetails(
             string TripPackage,
@@ -38,6 +35,210 @@ namespace server
             decimal DistanceToCenter,
             decimal PoiDistance,
             string PoiName
+        );
+        public record GetAllHotels
+        (
+            int HotelId,
+            string HotelName,
+            string Country,
+            string City,
+            int TotalAvailableCapacity,
+            int TotalAvailableRooms
+        );
+        public record ApplyFiltersRequest(
+            string Country,
+            DateTime Checkin,
+            DateTime Checkout,
+            int TotalTravelers,
+            string? City = null,
+            string? HotelName = null,
+            List<string>? Facilities = null,  // 7th parameter
+            int? MinStars = null,
+            double? MaxDistanceToCenter = null
+        );
+
+        public record HotelFilterResult(
+            string Country,
+            string City,
+            string HotelName,
+            int Stars,
+            double DistanceToCenter,
+            string Facilities
+        );
+
+                public static async Task<List<GetAllHotels>> GetAllHotelsByPreference(
+            Config config,
+            string country,
+            DateTime checkin,
+            DateTime checkout,
+            int total_travelers)
+        {
+            List<GetAllHotels> result = new();
+
+            string query = @"
+                SELECT
+                    h.id AS hotel_id,
+                    h.name AS hotel_name,
+                    c.name AS country,
+                    d.city,
+                    SUM(rt.capacity) AS total_hotel_capacity,
+                    COUNT(r.hotel_id) AS total_available_rooms
+                FROM hotels h
+                JOIN destinations AS d ON d.id = h.destination_id
+                JOIN countries AS c ON c.id = d.country_id
+                JOIN rooms AS r ON r.hotel_id = h.id
+                JOIN room_types AS rt ON rt.id = r.roomtype_id
+                LEFT JOIN booked_rooms AS br 
+                    ON br.hotel_id = r.hotel_id 
+                    AND br.room_number = r.room_number
+                LEFT JOIN bookings AS b
+                    ON b.id = br.booking_id 
+                    AND b.checkin < @checkout 
+                    AND b.checkout > @checkin
+                WHERE br.booking_id IS NULL
+                  AND LOWER(c.name) = LOWER(@country)
+                GROUP BY h.id, h.name, c.name, d.city
+                HAVING SUM(rt.capacity) >= @total_travelers;
+            ";
+
+            await using var conn = new MySqlConnection(config.db);
+            await conn.OpenAsync();
+
+            await using var cmd = new MySqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@country", country);
+            cmd.Parameters.AddWithValue("@checkin", checkin);
+            cmd.Parameters.AddWithValue("@checkout", checkout);
+            cmd.Parameters.AddWithValue("@total_travelers", total_travelers);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.Add(new GetAllHotels(
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetString(3),
+                    reader.GetInt32(4),
+                    reader.GetInt32(5)
+                ));
+            }
+
+            return result;
+        }
+        public static async Task<List<HotelFilterResult>> GetAllHotelsByFilters(
+            Config config,
+            ApplyFiltersRequest filter)
+        {
+            List<HotelFilterResult> result = new();
+
+            string query = """
+                    SELECT
+                    c.name AS Country,
+                    d.city AS City,
+                    h.name AS HotelName,
+                    h.stars AS Stars,
+                    h.distance_to_center AS DistanceToCenter,
+                    GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ') AS Facilities
+                FROM hotels h
+                INNER JOIN destinations AS d ON h.destination_id = d.id
+                INNER JOIN countries AS c ON d.country_id = c.id
+                LEFT JOIN accommodation_facilities AS af ON h.id = af.hotel_id
+                LEFT JOIN facilities AS f ON af.facility_id = f.id
+                JOIN rooms AS r ON r.hotel_id = h.id
+                JOIN room_types AS rt ON rt.id = r.roomtype_id
+                LEFT JOIN booked_rooms AS br 
+                    ON br.hotel_id = r.hotel_id 
+                    AND br.room_number = r.room_number
+                LEFT JOIN bookings AS b
+                    ON b.id = br.booking_id 
+                    AND b.checkin < @checkout 
+                    AND b.checkout > @checkin
+                WHERE br.booking_id IS NULL
+                AND LOWER(c.name) = LOWER(@country)
+            """;
+
+            using var conn = new MySqlConnection(config.db);
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand();
+            cmd.Connection = conn;
+
+            // Takes in parameters from the initial search
+            cmd.Parameters.AddWithValue("@country", filter.Country);
+            cmd.Parameters.AddWithValue("@checkin", filter.Checkin);
+            cmd.Parameters.AddWithValue("@checkout", filter.Checkout);
+            cmd.Parameters.AddWithValue("@total_travelers", filter.TotalTravelers);
+
+            // Optional filters
+            if (!string.IsNullOrWhiteSpace(filter.City))
+            {
+                query += " AND d.city LIKE @city";
+                cmd.Parameters.AddWithValue("@city", "%" + filter.City + "%");
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.HotelName))
+            {
+                query += " AND h.name LIKE @hotelName";
+                cmd.Parameters.AddWithValue("@hotelName", "%" + filter.HotelName + "%");
+            }
+
+            if (filter.MinStars.HasValue)
+            {
+                query += " AND h.stars >= @minStars";
+                cmd.Parameters.AddWithValue("@minStars", filter.MinStars.Value);
+            }
+
+            if (filter.MaxDistanceToCenter.HasValue)
+            {
+                query += " AND h.distance_to_center <= @maxDistance";
+                cmd.Parameters.AddWithValue("@maxDistance", filter.MaxDistanceToCenter.Value);
+            }
+
+            query += " GROUP BY h.id, h.name, c.name, d.city, h.stars, h.distance_to_center";
+
+            if (filter.Facilities?.Count > 0)
+            {
+                query += " HAVING COUNT(DISTINCT CASE WHEN f.name IN (";
+                
+                for (int i = 0; i < filter.Facilities.Count; i++)
+                {
+                    query += i > 0 ? ", " : "";
+                    query += $"@facility{i}";
+                    cmd.Parameters.AddWithValue($"@facility{i}", filter.Facilities[i]);
+                }
+                
+                query += $") THEN f.name END) = {filter.Facilities.Count}";
+                query += " AND SUM(rt.capacity) >= @total_travelers";
+            }
+            else
+            {
+                query += " HAVING SUM(rt.capacity) >= @total_travelers";
+            }
+
+            query += " ORDER BY h.name ASC;";
+            cmd.CommandText = query;
+
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.Add(new HotelFilterResult(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetInt32(3),
+                    reader.GetDouble(4),
+                    reader.IsDBNull(5) ? "No facilities" : reader.GetString(5)
+                ));
+            }
+            return result;
+        }
+        public record CustomizedPackage(
+            int PackageId,
+            string PackageName,
+            string Description,
+            decimal PricePerPerson,
+            List<int> SelectedDestinations,
+            List<int> SelectedHotels
         );
 
         /// <summary>
@@ -79,7 +280,6 @@ namespace server
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                // Search by package name / city / country
                 query += " AND (tp.name LIKE @search OR d.city LIKE @search OR c.name LIKE @search)";
                 cmd.Parameters.AddWithValue("@search", "%" + search + "%");
             }
@@ -115,42 +315,131 @@ namespace server
             while (await reader.ReadAsync())
             {
                 results.Add(new GetAll_Data(
-                    reader.GetString(0), // TripPackage
-                    reader.GetString(1), // Country
-                    reader.GetString(2), // City
-                    reader.GetString(3), // HotelName
-                    reader.GetInt32(4),  // RoomCapacity
-                    reader.GetInt32(5),  // Stars
-                    reader.GetDecimal(6) // PackagePrice
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetString(3),
+                    reader.GetInt32(4),
+                    reader.GetInt32(5),
+                    reader.GetDecimal(6)
                 ));
             }
 
             return results;
         }
- public static async Task<IResult> GetAllPackagesForUser(Config config, HttpContext ctx)
-    {
-        int? userId = ctx.Session.GetInt32("user_id");
-        if (userId is null)
+
+        public static async Task<IResult> GetSuggestedByCountry(Config config, string country)
         {
-        // if not logged in, not allowed to retrieve data
-            return Results.Unauthorized();
+            await using var conn = new MySqlConnection(config.db);
+            await conn.OpenAsync();
+
+            const string sql = """
+                SELECT 
+                    tp.id,
+                    tp.name,
+                    tp.description,
+                    tp.price_per_person,
+                    c.cuisine
+                FROM trip_packages tp
+                JOIN package_itineraries pi ON tp.id = pi.package_id
+                JOIN destinations d ON pi.destination_id = d.id
+                JOIN countries c ON d.country_id = c.id
+                WHERE c.name = @country;
+                """;
+
+            await using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@country", country);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            var result = new List<object>();
+
+            while (await reader.ReadAsync())
+            {
+                var id = Convert.ToInt32(reader["id"]);
+                var name = reader["name"]?.ToString() ?? "";
+                var description = reader["description"]?.ToString() ?? "";
+                var price = Convert.ToDecimal(reader["price_per_person"]);
+                var cuisine = reader["cuisine"]?.ToString() ?? "";
+
+                result.Add(new
+                {
+                    PackageId = id,
+                    Name = name,
+                    Description = description,
+                    Price = price,
+                    Cuisine = cuisine,
+                    SuggestionReason = "Matches selected country and cuisine"
+                });
+            }
+
+            return Results.Ok(result);
         }
 
-        List<Get_All_Packages_For_User> result = new();
 
-        string query = """
+        public static async Task<CustomizedPackage> GetCustomizedPackage(
+            Config config,
+            int packageId,
+            string? destinationIds = null,
+            string? hotelIds = null)
+        {
+            var destinationsList = string.IsNullOrWhiteSpace(destinationIds)
+            ? new List<int>()
+            : destinationIds.Split(',').Select(int.Parse).ToList();
+
+            var hotelsList = string.IsNullOrWhiteSpace(hotelIds)
+            ? new List<int>()
+            : hotelIds.Split(',').Select(int.Parse).ToList();
+
+
+            const string query = """
+                SELECT id, name, description, price_per_person
+                FROM trip_packages
+                WHERE id = @PackageId;
+                """;
+
+            await using var conn = new MySqlConnection(config.db);
+            await conn.OpenAsync();
+
+            await using var cmd = new MySqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@PackageId", packageId);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+                throw new Exception("Package not found");
+
+            return new CustomizedPackage( 
+                reader.GetInt32(0), // ID
+                reader.GetString(1), // Name
+                reader.IsDBNull(2) ? "" : reader.GetString(2), // description
+                reader.GetDecimal(3), // Price_Per_Person
+                destinationsList,
+                hotelsList
+            );
+        }
+
+
+
+        public static async Task<IResult> GetAllPackagesForUser(Config config, HttpContext ctx)
+        {
+            int? userId = ctx.Session.GetInt32("user_id");
+            if (userId is null)
+                return Results.Unauthorized();
+
+            List<Get_All_Packages_For_User> result = new();
+
+            const string query = """
                 SELECT id, user_id, package_id, checkin, checkout, number_of_travelers, status
                 FROM bookings
                 WHERE user_id = @user_id;
-        """;
+                """;
 
-         var parameters = new MySqlParameter[]
-    {
-        new("@user_id", userId.Value)
-    };
+            var parameters = new MySqlParameter[]
+                {
+                    new("@user_id", userId.Value)
+                };
 
-        using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query, parameters))
-        {
+            using var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query, parameters);
             while (await reader.ReadAsync())
             {
                 int id = reader.GetInt32(0);
@@ -173,12 +462,9 @@ namespace server
                     status
                 ));
             }
+
+            return Results.Ok(result);
         }
-
-        return Results.Ok(result);
-
-    }
-
 
         /// <summary>
         /// Detailed packages by country (includes descriptions, distances, POI).
@@ -210,9 +496,10 @@ namespace server
                 INNER JOIN poi_distances AS pd ON hpd.poi_distance_id = pd.id
             ";
 
-            using var connection = new MySqlConnection(config.db);
+            await using var connection = new MySqlConnection(config.db);
             await connection.OpenAsync();
-            using var cmd = new MySqlCommand();
+
+            await using var cmd = new MySqlCommand();
             cmd.Connection = connection;
 
             if (!string.IsNullOrEmpty(country))
@@ -224,7 +511,7 @@ namespace server
             query += " ORDER BY tp.name ASC; ";
             cmd.CommandText = query;
 
-            using var reader = await cmd.ExecuteReaderAsync();
+            await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 result.Add(new PackageDetails(
@@ -239,263 +526,6 @@ namespace server
                     reader.IsDBNull(8) ? 0m : reader.GetDecimal(8),
                     reader.GetString(9)
                 ));
-            }
-
-            return result;
-        }
-
-        public record GetHotelByF(
-            string HotelName,
-            string City,
-            string Country,
-            string Facilities
-        );
-
-        public static async Task<List<GetHotelByF>> GetHotelByFacilities(Config config)
-        {
-            List<GetHotelByF> result = new();
-
-            string query = @"
-                SELECT
-                    h.name AS HotelName,
-                    d.city AS City,
-                    c.name AS Country,
-                    GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ') AS Facilities
-                FROM hotels AS h
-                INNER JOIN destinations d ON h.destination_id = d.id
-                INNER JOIN countries c ON d.country_id = c.id
-                INNER JOIN accommodation_facilities af ON h.id = af.hotel_id
-                INNER JOIN facilities f ON af.facility_id = f.id
-                WHERE f.name IN ('Swimming pool', 'Spa')
-                GROUP BY h.name, d.city, c.name
-                HAVING COUNT(DISTINCT f.name) = 2;
-            ";
-
-            using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query))
-            {
-                while (await reader.ReadAsync())
-                {
-                    string hotelName = reader.GetString(0);
-                    string city = reader.GetString(1);
-                    string country = reader.GetString(2);
-                    string facilities = reader.GetString(3);
-
-                    result.Add(new GetHotelByF(
-                        hotelName,
-                        city,
-                        country,
-                        facilities
-                    ));
-                }
-            }
-
-            return result;
-        }
-
-        public record GetHotelByW(
-            string Country,
-            string City,
-            string HotelName,
-            string Facility
-        );
-
-        public static async Task<List<GetHotelByW>> GetHotelByWiFi(Config config)
-        {
-            List<GetHotelByW> result = new();
-
-            // Fixed JOINs – previous version joined facilities to countries etc.
-            string query = @"
-                SELECT
-                    c.name AS Country,
-                    d.city AS City,
-                    h.name AS HotelName,
-                    f.name AS Facility
-                FROM hotels AS h
-                INNER JOIN destinations AS d ON h.destination_id = d.id
-                INNER JOIN countries AS c ON d.country_id = c.id
-                INNER JOIN accommodation_facilities AS af ON h.id = af.hotel_id
-                INNER JOIN facilities AS f ON af.facility_id = f.id
-                WHERE f.name = 'Free Wi-Fi';
-            ";
-
-            using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query))
-            {
-                while (await reader.ReadAsync())
-                {
-                    string country = reader.GetString(0);
-                    string city = reader.GetString(1);
-                    string hotelName = reader.GetString(2);
-                    string facility = reader.GetString(3);
-
-                    result.Add(new GetHotelByW(
-                        country,
-                        city,
-                        hotelName,
-                        facility
-                    ));
-                }
-            }
-
-            return result;
-        }
-
-        public record HotelSearchResult
-        (
-            int HotelId,
-            string HotelName,
-            string Country,
-            string City,
-            int TotalAvailableCapacity,
-            int TotalAvailableRooms
-        );
-
-        public static async Task<List<HotelSearchResult>> GetAllHotelsByPreference(
-            Config config,
-            string country,
-            DateTime checkin,
-            DateTime checkout,
-            int total_travelers)
-        {
-            List<HotelSearchResult> result = new();
-
-            string query = @"
-                SELECT
-                    h.id AS hotel_id,
-                    h.name AS hotel_name,
-                    c.name AS country,
-                    d.city,
-                    SUM(rt.capacity) AS total_hotel_capacity,
-                    COUNT(r.hotel_id) AS total_available_rooms
-                FROM hotels h
-                JOIN destinations AS d ON d.id = h.destination_id
-                JOIN countries AS c ON c.id = d.country_id
-                JOIN rooms AS r ON r.hotel_id = h.id
-                JOIN room_types AS rt ON rt.id = r.roomtype_id
-                LEFT JOIN booked_rooms AS br 
-                    ON br.hotel_id = r.hotel_id 
-                    AND br.room_number = r.room_number
-                LEFT JOIN bookings AS b -- filter out rooms that are booked during this timespan
-                    ON b.id = br.booking_id 
-                    AND b.checkin < @checkout 
-                    AND b.checkout > @checkin
-                WHERE br.booking_id IS NULL -- filter out the rooms that are booked
-                AND LOWER(c.name) = LOWER(@country)
-                GROUP BY h.id, h.name, c.name, d.city
-                HAVING SUM(rt.capacity) >= @total_travelers; -- filter out hotels that dont have the capacity
-            ";
-
-            using var conn = new MySqlConnection(config.db);
-            await conn.OpenAsync();
-            using var cmd = new MySqlCommand(query, conn);
-
-            cmd.Parameters.AddWithValue("@country", country);
-            cmd.Parameters.AddWithValue("@checkin", checkin);
-            cmd.Parameters.AddWithValue("@checkout", checkout);
-            cmd.Parameters.AddWithValue("@total_travelers", total_travelers);
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                result.Add(new HotelSearchResult(
-                    reader.GetInt32(0),
-                    reader.GetString(1),
-                    reader.GetString(2),
-                    reader.GetString(3),
-                    reader.GetInt32(4),
-                    reader.GetInt32(5)
-                ));
-            }
-
-            return result;
-        }
-
-        public record GetHotelByS
-        (
-            string Country,
-            string City,
-            string HotelName,
-            int Stars
-        );
-
-        public static async Task<List<GetHotelByS>> GetHotelByStars(Config config)
-        {
-            List<GetHotelByS> result = new();
-
-            string query = @"
-                SELECT
-                    c.name AS Country,
-                    d.city AS City,
-                    h.name AS HotelName,
-                    h.stars AS Stars
-                FROM hotels h
-                INNER JOIN destinations AS d ON h.destination_id = d.id
-                INNER JOIN countries AS c ON d.country_id = c.id
-                WHERE h.stars >= 4
-                ORDER BY h.stars DESC;
-            ";
-
-            using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query))
-            {
-                while (await reader.ReadAsync())
-                {
-                    string country = reader.GetString(0);
-                    string city = reader.GetString(1);
-                    string hotelName = reader.GetString(2);
-                    int stars = reader.GetInt32(3);
-
-                    result.Add(new GetHotelByS(
-                        country,
-                        city,
-                        hotelName,
-                        stars
-                    ));
-                }
-            }
-
-            return result;
-        }
-
-        public record GetHotelByD
-        (
-            string Country,
-            string City,
-            string HotelName,
-            double DistanceToCenter
-        );
-
-        public static async Task<List<GetHotelByD>> GetHotelByDistanceToC(Config config)
-        {
-            List<GetHotelByD> result = new();
-
-            string query = @"
-                SELECT
-                    c.name AS Country,
-                    d.city AS City,
-                    h.name AS HotelName,
-                    h.distance_to_center AS DistanceToCenter
-                FROM hotels h
-                INNER JOIN destinations AS d ON h.destination_id = d.id
-                INNER JOIN countries AS c ON d.country_id = c.id
-                WHERE h.distance_to_center <= 1
-                ORDER BY h.distance_to_center DESC;
-            ";
-
-            using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query))
-            {
-                while (await reader.ReadAsync())
-                {
-                    string country = reader.GetString(0);
-                    string city = reader.GetString(1);
-                    string hotelName = reader.GetString(2);
-                    double distanceToCenter = reader.GetDouble(3);
-
-                    result.Add(new GetHotelByD(
-                        country,
-                        city,
-                        hotelName,
-                        distanceToCenter
-                    ));
-                }
             }
 
             return result;

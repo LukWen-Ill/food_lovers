@@ -1,4 +1,5 @@
 using MySql.Data.MySqlClient;
+using MySqlX.XDevAPI.Common;
 namespace server;
 
 // SELECT, reader
@@ -9,10 +10,18 @@ class Users
     static List<User> users = new();
     public record Get_Data(int id, string Email, string Password);
     //List<Get_Data> -> asynd Task<List<Get_Data>> Get()
-    public static async Task<List<Get_Data>> Get(Config config)
+    public static async Task<IResult> Get( Config config, HttpContext ctx)
     {
+        int? adminId = ctx.Session.GetInt32("admin_id");
+         if (adminId is null)
+    {
+        return Results.Unauthorized();
+    }
+
         List<Get_Data> result = new();
+
         string query = "SELECT id, email, password FROM users";
+
         using (var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query))
         {
             while (reader.Read())
@@ -20,7 +29,7 @@ class Users
                 result.Add(new(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
             }
         }
-        return result;
+        return Results.Ok(result);
     }
     public record GetById_Data(string Email);
     public static async Task<GetById_Data?> GetById(int id, Config config) //En del av vår path
@@ -65,8 +74,14 @@ class Users
     }
     public record Put_Args(int Id, string Email, string Password);
 
-    public static async Task Put(Put_Args user, Config config)
+    public static async Task<IResult> Put(Put_Args user, Config config, HttpContext ctx)
     {
+
+        int? adminId = ctx.Session.GetInt32("admin_id");
+         if (adminId is null)
+    {
+        return Results.Unauthorized();
+    }
         string query = """
         UPDATE users 
         SET email = @email, password = @password 
@@ -81,6 +96,9 @@ class Users
         };
 
         await MySqlHelper.ExecuteNonQueryAsync(config.db, query, parameters);
+
+        return Results.Ok();
+
     }
 
 }
