@@ -34,9 +34,10 @@ app.UseSwaggerUI();
 
 // REST routes
 // session / login / logout examples (auth resource)
-app.MapGet("/login", Login.Get); // check if logged in
-app.MapPost("/login", Login.Post); // log in
-app.MapDelete("/login", Login.Delete); // log out
+app.MapGet("/login", Login.Get);
+app.MapPost("/login", Login.Post);
+app.MapPost("/login/admin", Login.PostAdmin);
+app.MapDelete("/login", Login.Delete);
 
 // CRUD examples (user resource)
 app.MapGet("/users", Users.Get); // get all users
@@ -46,8 +47,9 @@ app.MapPut("/users/{id}", Users.Put); // update user
 app.MapDelete("/users/{id}", Users.Delete); // delete user
 
 // CRUD methods for bookings
-app.MapGet("/bookings", Bookings.GetAll); 
-app.MapPost("/bookings", Bookings.Post); 
+app.MapGet("/bookings", Bookings.GetAll);
+app.MapGet("/bookings/{bookingsId}/totalcost", Bookings.GetTotalCostByBooking);
+app.MapPost("/bookings", Bookings.Post);
 app.MapDelete("/bookings/{id:int}", Bookings.Delete);
 app.MapGet("/bookings/user", Bookings.GetAllPackagesForUser); // get all packages booked by a user
 
@@ -55,6 +57,52 @@ app.MapGet("/bookings/user", Bookings.GetAllPackagesForUser); // get all package
 
 
 // CRUD Methods for packages
+app.MapGet("/searchings/SuggestedCountry", Searchings.GetSuggestedByCountry);
+app.MapPost("/searchings/customizedPackage", Searchings.GetCustomizedPackage);
+
+app.MapGet("/search/hotels", Searchings.GetAllHotelsByPreference);
+app.MapGet("/search/hotels/filters", async (
+    Config config,
+    string country,
+    DateTime checkin,
+    DateTime checkout,
+    int total_travelers,
+    string? city,
+    string? hotelName,
+    int? minStars,
+    double? maxDistanceToCenter,
+    string? facilities) =>
+{
+    List<string>? facilitiesList = null;
+    if (!string.IsNullOrWhiteSpace(facilities))
+    {
+        facilitiesList = facilities.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                   .Select(f => f.Trim())
+                                   .ToList();
+    }
+
+    var filter = new Searchings.ApplyFiltersRequest(
+        country,
+        checkin,
+        checkout,
+        total_travelers,
+        city,
+        hotelName,
+        facilitiesList,
+        minStars,
+        maxDistanceToCenter
+    );
+    
+    var hotels = await Searchings.GetAllHotelsByFilters(config, filter);
+    return Results.Ok(hotels);
+});
+
+
+
+app.MapGet("/searchingsbycountry", async (Config config, string? country) =>
+{
+    return await Searchings.GetAllPackagesByCountry(config, country);
+});
 app.MapGet("/packages", Searchings.GetPackages); // get all packages with optional filters
 //  GET http://localhost:5240/packages?country=Italy
 //  GET http://localhost:5240/packages?maxPrice=1000
@@ -93,12 +141,11 @@ async Task db_reset_to_default(Config config)
         DROP TABLE IF EXISTS trip_packages;
         DROP TABLE IF EXISTS destinations;
         DROP TABLE IF EXISTS facilities;
-        DROP TABLE IF EXISTS room_types;
         DROP TABLE IF EXISTS countries;
         DROP TABLE IF EXISTS users;
+        DROP TABLE IF EXISTS admins;
+        DROP TABLE IF EXISTS room_types;
 
-        -- db views dropped before created
-        DROP VIEW IF EXISTS Room_type;
 
         SET FOREIGN_KEY_CHECKS = 1; -- control for database foreign key constraints. example: cant drop a parent table if a child table references it. = 1 enables it
 
@@ -112,6 +159,14 @@ async Task db_reset_to_default(Config config)
             email VARCHAR(256) NOT NULL UNIQUE,
             password VARCHAR(256) NOT NULL,
             CONSTRAINT chk_email_format CHECK (email LIKE '%_@_%._%')
+        );
+
+        -- ADMINS table
+        CREATE TABLE admins (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            email VARCHAR(256) NOT NULL UNIQUE,
+            password VARCHAR(256) NOT NULL,
+            CONSTRAINT chk_a_email_format CHECK (email LIKE '%_@_%._%')
         );
 
         -- COUNTRIES table
@@ -235,10 +290,33 @@ async Task db_reset_to_default(Config config)
             FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
             FOREIGN KEY (hotel_id, room_number) REFERENCES rooms(hotel_id, room_number) ON DELETE CASCADE
         );
-
         """;
 
-    string seed = """
+    string views = """
+        DROP VIEW IF EXISTS receipt;
+
+        CREATE VIEW receipt AS (
+        SELECT
+        b.id AS booking,
+        CONCAT(u.first_name, ' ', u.last_name) AS name,
+        tp.name AS package,
+        b.number_of_travelers AS travelers,
+        tp.price_per_person AS price_per_person,
+        DATEDIFF(b.checkout, b.checkin) AS nights,
+        (tp.price_per_person * b.number_of_travelers) 
+        + COALESCE(SUM(br.price_per_night * DATEDIFF(b.checkout, b.checkin)), 0) AS total
+        FROM bookings b
+        JOIN trip_packages tp ON b.package_id = tp.id
+        LEFT JOIN booked_rooms br ON b.id = br.booking_id
+        JOIN users AS u ON b.user_id = u.id
+        WHERE b.id = 1
+        GROUP BY b.id, u.first_name, u.last_name, tp.name, b.number_of_travelers, tp.price_per_person, b.checkin, b.checkout
+        );
+        """;
+
+
+
+    string seeds = """
 
         SET FOREIGN_KEY_CHECKS = 0;
         TRUNCATE TABLE booked_rooms;
@@ -263,6 +341,13 @@ async Task db_reset_to_default(Config config)
         (1, 'Anna', 'Svensson', 'anna@example.com', 'password123'),
         (2, 'Johan', 'Larsson', 'johan@example.com', 'password123'),
         (3, 'Maria', 'Gonzalez', 'maria@example.com', 'password123');
+
+        -- ===========================
+        -- ADMINS
+        -- ===========================
+        INSERT INTO admins (id, email, password) VALUES 
+        (1, 'christian@example.com', '123');
+
 
         -- ===========================
         -- COUNTRIES
@@ -535,6 +620,7 @@ async Task db_reset_to_default(Config config)
         -- ===========================
         INSERT INTO booked_rooms (booking_id, hotel_id, room_number, price_per_night) VALUES
         (1, 1, 101, 150.00),  -- Booking 1: Hotel 1, Room 101
+        (1, 2, 201, 150.00),  -- Booking 1: Hotel 2, Room 201
         (2, 3, 301, 110.00),  -- Booking 2: Hotel 3, Room 301
         (3, 4, 401, 200.00);  -- Booking 3: Hotel 4, Room 401
 
@@ -542,7 +628,8 @@ async Task db_reset_to_default(Config config)
     """;
 
     await MySqlHelper.ExecuteNonQueryAsync(config.db, tables);
-    await MySqlHelper.ExecuteNonQueryAsync(config.db, seed);
+    await MySqlHelper.ExecuteNonQueryAsync(config.db, views);
+    await MySqlHelper.ExecuteNonQueryAsync(config.db, seeds);
 }
 
 
