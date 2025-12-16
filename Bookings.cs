@@ -32,13 +32,16 @@ class Bookings
     );
     // DTO FOR GET ALL PACKAGES FOR USER ENDPOINT
     public record Get_All_Packages_For_User(
-        int Id,
+        int BookingId,
         int UserId,
         int PackageId,
+        int StopOrder,
         DateTime Checkin,
         DateTime Checkout,
         int NumberOfTravelers,
-        BookingStatus Status
+        BookingStatus Status,
+        string City,
+        string HotelName
     );
     // DTO FOR POST BOOKINGS (doesn't take in id or userID, and auto sets status to pending)
     public record RoomSelection(
@@ -275,10 +278,24 @@ public static async Task<IResult> GetAllPackagesForUser(Config config, HttpConte
             List<Get_All_Packages_For_User> result = new();
 
             const string query = """
-                SELECT id, user_id, package_id, checkin, checkout, number_of_travelers, status
-                FROM bookings
-                WHERE user_id = @user_id;
-                """;
+                SELECT 
+                    b.id,
+                    b.user_id,
+                    b.package_id,
+                    bs.stop_order,
+                    bs.checkin,
+                    bs.checkout,
+                    b.number_of_travelers,
+                    b.status,
+                    d.city,
+                    h.name as hotel_name
+                FROM bookings b
+                JOIN booking_stops bs ON b.id = bs.booking_id
+                JOIN hotels h ON bs.hotel_id = h.id
+                JOIN destinations d ON h.destination_id = d.id
+                WHERE b.user_id = @user_id
+                ORDER BY b.id, bs.stop_order;
+            """;
 
             var parameters = new MySqlParameter[]
                 {
@@ -288,24 +305,29 @@ public static async Task<IResult> GetAllPackagesForUser(Config config, HttpConte
             using var reader = await MySqlHelper.ExecuteReaderAsync(config.db, query, parameters);
             while (await reader.ReadAsync())
             {
-                int id = reader.GetInt32(0);
+                int bookingId = reader.GetInt32(0);
                 int user_Id = reader.GetInt32(1);
                 int packageId = reader.GetInt32(2);
-                DateTime checkin = reader.GetDateTime(3);
-                DateTime checkout = reader.GetDateTime(4);
-                int numberOfTravelers = reader.GetInt32(5);
-                string statusString = reader.GetString(6);
-
+                int stopOrder = reader.GetInt32(3);
+                DateTime checkin = reader.GetDateTime(4);
+                DateTime checkout = reader.GetDateTime(5);
+                int numberOfTravelers = reader.GetInt32(6);
+                string statusString = reader.GetString(7);
+                string city = reader.GetString(8);
+                string hotelName = reader.GetString(9);
                 BookingStatus status = Enum.Parse<BookingStatus>(statusString, ignoreCase: true);
 
                 result.Add(new Get_All_Packages_For_User(
-                    id,
+                    bookingId,
                     user_Id,
                     packageId,
+                    stopOrder,
                     checkin,
                     checkout,
                     numberOfTravelers,
-                    status
+                    status,
+                    city,
+                    hotelName
                 ));
             }
 
