@@ -34,15 +34,22 @@ class Bookings
         int NumberOfTravelers,
         BookingStatus Status
     );
-    // DTO FOR POST BOOKINGS (doesn't take in id or userID)
-    public record Post_Args(
+    // DTO FOR POST BOOKINGS (doesn't take in id or userID, and auto sets status to pending)
+    public record Post_Args( //
+    /* TEST DATA:
+    {
+        "packageId": 1,
+        "checkin": "2025-06-01T15:00:00",
+        "checkout": "2025-06-04T10:00:00",
+        "numberOfTravelers": 2
+    }
+    */
         int PackageId,
         DateTime Checkin,
         DateTime Checkout,
-        int NumberOfTravelers,
-        string Status // in this record, status is defined as string. this is to be able to handle it inside post
+        int NumberOfTravelers
     );
-
+    
         public record GetAllData(
         string user,
         int UserId,
@@ -111,16 +118,12 @@ class Bookings
             return Results.Unauthorized();
         }
 
-        // 2. parse status string to enum
-        if (!Enum.TryParse<BookingStatus>(body.Status, ignoreCase: true, out var statusEnum))
-        {
-            return Results.BadRequest(new { error = "Invalid booking status." });
-        }
+
 
         // 3. Insert booking using session userId
         const string insertQuery = """
         INSERT INTO bookings (user_id, package_id, checkin, checkout, number_of_travelers, status)
-        VALUES (@user_id, @package_id, @checkin, @checkout, @number_of_travelers, @status);
+        VALUES (@user_id, @package_id, @checkin, @checkout, @number_of_travelers, 'pending');
     """;
 
         var insertParams = new MySqlParameter[]
@@ -129,8 +132,7 @@ class Bookings
         new("@package_id", body.PackageId),
         new("@checkin", body.Checkin),
         new("@checkout", body.Checkout),
-        new("@number_of_travelers", body.NumberOfTravelers),
-        new("@status", statusEnum.ToString().ToLower())
+        new("@number_of_travelers", body.NumberOfTravelers)
         };
 
         await MySqlHelper.ExecuteNonQueryAsync(config.db, insertQuery, insertParams);
@@ -146,6 +148,7 @@ class Bookings
             return Results.Ok(new
             {
                 id = newId,
+                status = "pending",
                 message = "Booking created successfully."
             });
         }
@@ -387,8 +390,8 @@ public static async Task<IResult> GetDetails(int id, Config config)
                 tp.price_per_person
                 FROM bookings b 
                 JOIN trip_packages tp ON b.package_id = tp.id
-                JOIN package_itineraries pi ON tp.id = pi.package_id
-                JOIN destinations d ON pi.destination_id = d.id  
+                JOIN stops s ON tp.id = s.package_id
+                JOIN destinations d ON s.destination_id = d.id  
                 JOIN countries c ON d.country_id = c.id
                 JOIN hotels h ON d.id = h.destination_id
                 WHERE b.id = @id

@@ -68,7 +68,6 @@ app.MapGet("/packages", Searchings.GetPackages); // get all packages with option
 //  GET http://localhost:5240/packages?country=Italy
 //  GET http://localhost:5240/packages?maxPrice=1000
 //  GET http://localhost:5240/packages?search=street food
-//  GET http://localhost:5240/packages?country=France&minStars=4&maxPrice=1500
 
 app.MapGet("/hotels", Searchings.GetFilters);
 // GET /hotels?country=Italy&minStars=4
@@ -98,13 +97,14 @@ async Task db_reset_to_default(Config config)
         DROP TABLE IF EXISTS hotel_poi_distances;
         DROP TABLE IF EXISTS poi_distances;
         DROP TABLE IF EXISTS hotels;
-        DROP TABLE IF EXISTS package_itineraries;
+        DROP TABLE IF EXISTS package_itineraries; -- ta bort senare
         DROP TABLE IF EXISTS trip_packages;
         DROP TABLE IF EXISTS destinations;
         DROP TABLE IF EXISTS facilities;
         DROP TABLE IF EXISTS countries;
         DROP TABLE IF EXISTS users;
         DROP TABLE IF EXISTS admins;
+        DROP TABLE IF EXISTS stops;
         DROP TABLE IF EXISTS room_types;
 
 
@@ -154,17 +154,16 @@ async Task db_reset_to_default(Config config)
             price_per_person DECIMAL(10, 2) NOT NULL
         );
 
-        -- PACKAGE_ITINERARIES table (junction table)
-        CREATE TABLE package_itineraries (
+        -- STOPS table (junction table)
+        CREATE TABLE stops (
             package_id INT NOT NULL,
-            destination_id INT NOT NULL,
             stop_order INT NOT NULL,
-            nights TINYINT NOT NULL,
+            destination_id INT NOT NULL,
+            nights TINYINT NOT NULL CHECK (nights > 0),
             PRIMARY KEY (package_id, stop_order),
             FOREIGN KEY (package_id) REFERENCES trip_packages(id) ON DELETE CASCADE,
-            FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
+            FOREIGN KEY (destination_id) REFERENCES destinations(id)
         );
-
 
         -- HOTELS table
         CREATE TABLE hotels (
@@ -233,12 +232,14 @@ async Task db_reset_to_default(Config config)
             id INT PRIMARY KEY AUTO_INCREMENT,
             user_id INT NOT NULL,
             package_id INT NOT NULL,
+            stop_order INT NOT NULL,
             checkin DATETIME NOT NULL,
             checkout DATETIME NOT NULL,
             number_of_travelers INT NOT NULL,
             status ENUM('pending', 'confirmed', 'cancelled', 'completed') NOT NULL DEFAULT 'pending',
             FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (package_id) REFERENCES trip_packages(id)
+            FOREIGN KEY (package_id) REFERENCES trip_packages(id),
+            FOREIGN KEY (package_id, stop_order) REFERENCES stops(package_id, stop_order)
         );
 
         -- BOOKED_ROOMS table
@@ -287,12 +288,12 @@ async Task db_reset_to_default(Config config)
         TRUNCATE TABLE hotel_poi_distances;
         TRUNCATE TABLE poi_distances;
         TRUNCATE TABLE hotels;
-        TRUNCATE TABLE package_itineraries;
         TRUNCATE TABLE trip_packages;
         TRUNCATE TABLE destinations;
         TRUNCATE TABLE facilities;
         TRUNCATE TABLE countries;
         TRUNCATE TABLE users;
+        TRUNCATE TABLE stops;
         SET FOREIGN_KEY_CHECKS = 1;
 
         -- ===========================
@@ -348,26 +349,26 @@ async Task db_reset_to_default(Config config)
         -- ===========================
         -- PACKAGE ITINERARIES
         -- ===========================
-        INSERT INTO package_itineraries (package_id, destination_id, stop_order, nights) VALUES
+        INSERT INTO stops (package_id, stop_order, destination_id, nights) VALUES
         -- Package 1: Taste of Italy (Rome 3 nights → Florence 4 nights)
         (1, 1, 1, 3),
         (1, 2, 2, 4),
 
         -- Package 2: Tokyo Street Food (Tokyo only, 5 nights)
-        (2, 3, 1, 5),
+        (2, 1, 3, 5),
 
         -- Package 3: Beach & Tacos (Cancún only, 6 nights)
-        (3, 4, 1, 6),
+        (3, 1, 4, 6),
 
         -- Package 4: French Culinary Journey (Paris 4 nights → Lyon 4 nights)
-        (4, 5, 1, 4),
-        (4, 6, 2, 4),
+        (4, 1, 5, 4),
+        (4, 2, 6, 4),
 
         -- Package 5: Bangkok Street Eats (Bangkok only, 6 nights)
-        (5, 7, 1, 6),
+        (5, 1, 7, 6),
 
         -- Package 6: Tapas Trail (Barcelona only, 5 nights)
-        (6, 8, 1, 5);
+        (6, 1, 8, 5);
 
 
         -- ===========================
@@ -570,12 +571,11 @@ async Task db_reset_to_default(Config config)
         -- ===========================
         -- BOOKINGS
         -- ===========================
-        INSERT INTO bookings (id, user_id, package_id, checkin, checkout, number_of_travelers, status) VALUES
-        (1, 1, 1, '2025-07-01 15:00:00', '2025-07-08 10:00:00', 2, 'confirmed'),
-        (2, 2, 2, '2025-09-10 12:00:00', '2025-09-15 09:00:00', 1, 'pending'),
-        (3, 3, 3, '2025-11-05 18:00:00', '2025-11-11 08:00:00', 4, 'confirmed');
-
-
+        INSERT INTO bookings (id, user_id, package_id, stop_order, checkin, checkout, number_of_travelers, status) VALUES
+        (1, 1, 1, 1, '2025-07-01 15:00:00', '2025-07-08 10:00:00', 2, 'confirmed'),
+        (2, 2, 2, 1, '2025-09-10 12:00:00', '2025-09-15 09:00:00', 1, 'pending'),
+        (3, 3, 3, 1, '2025-11-05 18:00:00', '2025-11-11 08:00:00', 4, 'confirmed');
+        
         -- ===========================
         -- BOOKED ROOMS
         -- ===========================
