@@ -78,10 +78,11 @@ namespace server
                 LEFT JOIN booked_rooms AS br 
                     ON br.hotel_id = r.hotel_id 
                     AND br.room_number = r.room_number
-                LEFT JOIN bookings AS b
-                    ON b.id = br.booking_id 
-                    AND b.checkin < @checkout 
-                    AND b.checkout > @checkin
+                LEFT JOIN booking_stops AS bs
+                    ON br.booking_id = bs.booking_id 
+                    AND br.stop_order = bs.stop_order
+                    AND bs.checkin < @checkout 
+                    AND bs.checkout > @checkin
                 WHERE br.booking_id IS NULL
                 AND LOWER(c.name) = LOWER(@country)
             """;
