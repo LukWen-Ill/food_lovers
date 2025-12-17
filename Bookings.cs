@@ -64,6 +64,34 @@ class Bookings
         List<StopSelection> Stops
     );
 
+    public record Receipt(
+        int booking,
+        string name,
+        string package,
+        int travelers,
+        decimal price_per_person,
+        int nights,
+        decimal total
+    );
+
+    public record Put_Booking(      
+        int PackageId,
+        DateTime Checkin,
+        DateTime Checkout,
+        int NumberOfTravelers,
+        string Status);
+
+    public record BookingDetails_Data(
+        int Id,
+        string Status, 
+        string PackageName, 
+        string Country, 
+        string City, 
+        string HotelName, 
+        decimal PricePerPerson
+    );
+
+
         
 
 
@@ -333,15 +361,6 @@ public static async Task<IResult> GetAllPackagesForUser(Config config, HttpConte
 
             return Results.Ok(result);
         }
-    public record Receipt(
-        int booking,
-        string name,
-        string package,
-        int travelers,
-        decimal price_per_person,
-        int nights,
-        decimal total
-    );
 
     public static async Task<List<Receipt>?> GetTotalCostByBooking(Config config, HttpContext ctx, int bookingsId)
     {
@@ -399,12 +418,6 @@ public static async Task<IResult> GetAllPackagesForUser(Config config, HttpConte
 
         return result;
     }
-    public record Put_Booking(      
-        int PackageId,
-        DateTime Checkin,
-        DateTime Checkout,
-        int NumberOfTravelers,
-        string Status);
 
     public static async Task<IResult> Put(int bookingId, Put_Booking body, Config config, HttpContext ctx)
     {
@@ -451,15 +464,6 @@ public static async Task<IResult> GetAllPackagesForUser(Config config, HttpConte
 
 
 // definerar datan som ska visas till user
-public record BookingDetails_Data(
-    int Id,
-    string Status, 
-    string PackageName, 
-    string Country, 
-    string City, 
-    string HotelName, 
-    decimal PricePerPerson
-);
 
 public static async Task<IResult> GetDetails(int id, Config config)
     {  
