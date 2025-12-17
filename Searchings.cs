@@ -110,6 +110,16 @@ namespace server
             string Country
             );
 
+        public record CustomizedPackage(
+            int PackageId,
+            string PackageName,
+            string Description,
+            decimal PricePerPerson,
+            List<int> SelectedDestinations,
+            List<int> SelectedHotels
+        );
+
+
         public static async Task<List<HotelFilterResult>> GetAllHotelsFiltered(
             Config config,
             HotelFilterRequest filter)
@@ -220,14 +230,6 @@ namespace server
             }
             return result;
         }
-        public record CustomizedPackage(
-            int PackageId,
-            string PackageName,
-            string Description,
-            decimal PricePerPerson,
-            List<int> SelectedDestinations,
-            List<int> SelectedHotels
-        );
 
         /// <summary>
         /// Get all packages with optional filters.
