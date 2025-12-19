@@ -602,10 +602,10 @@ namespace server
             tp.name,
             tp.description,
             tp.price_per_person,
-            pi.nights
+            s.nights
             FROM trip_packages AS tp
-            JOIN package_itineraries AS pi ON tp.id = pi.package_id
-            JOIN destinations AS d ON pi.destination_id = d.id
+            JOIN stops AS s ON tp.id = s.package_id
+            JOIN destinations AS d ON s.destination_id = d.id
             JOIN countries AS c ON d.country_id = c.id
             WHERE tp.id = @id;
             """;
