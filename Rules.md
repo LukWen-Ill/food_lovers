@@ -10,6 +10,8 @@ AI användning
 
 	Lättläst kod
 
+	Claude dokumenterar alla förändringar i .claude/changelog
+
 Teknisk skuld
 
 	Dagliga möte / Feature möten

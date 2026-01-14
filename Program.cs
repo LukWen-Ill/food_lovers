@@ -34,15 +34,15 @@ app.UseSwaggerUI();
 
 // REST routes
 // session / login / logout examples (auth resource)
-app.MapGet("/login", Login.Get);
-app.MapPost("/login", Login.Post);
-app.MapPost("/login/admin", Login.PostAdmin);
-app.MapDelete("/login", Login.Delete);
+app.MapGet("/login", Login.Get); // checks if user is logged in
+app.MapPost("/login", Login.Post); //post to login, if user info is correct, user is logged in.
+app.MapPost("/login/admin", Login.PostAdmin); // admin login
+app.MapDelete("/login", Login.Delete); //logout
 
 // CRUD examples (user resource)
-app.MapGet("/users", Users.Get); // get all users
-app.MapGet("/users/{id}", Users.GetById); // get user by id
-app.MapPost("/users", Users.Post); // create new user
+app.MapGet("/users", Users.Get); // get all users - requries admin to be logged in.
+app.MapGet("/users/{id}", Users.GetById); // get user by id, get specific user.
+app.MapPost("/users", Users.Post); // create new user 
 app.MapPut("/users/{id}", Users.Put); // update user
 app.MapDelete("/users/{id}", Users.Delete); // delete user
 
@@ -59,12 +59,6 @@ app.MapGet("/admin/trips/{id}", Searchings.GetAllTripsByID);
 
 app.MapGet("/admin/facilities", Searchings.GetAllFacilities);
 app.MapGet("/admin/facilities/{id}", Searchings.GetFacilityByID);
-
-// CRUD Methods for packages
-app.MapGet("/searchings/SuggestedCountry", Searchings.GetSuggestedByCountry);
-app.MapGet("/searchings/customizedPackage", Searchings.GetCustomizedPackage);
-
-
 
 
 
