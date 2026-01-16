@@ -1,6 +1,8 @@
 using MySql.Data.MySqlClient;
 using MySqlX.XDevAPI.Common;
-namespace server;
+using server.Configuration;
+
+namespace server.Endpoints;
 
 // SELECT, reader
 // INSERT, parameters
@@ -32,7 +34,7 @@ class Users
         return Results.Ok(result);
     }
     public record GetById_Data(string Email);
-    public static async Task<GetById_Data?> GetById(int id, Config config) //En del av vår path
+    public static async Task<GetById_Data?> GetById(int id, Config config) //En del av var path
     {
         GetById_Data? result = null;
         string query = "SELECT email FROM users WHERE id = @id";
@@ -50,7 +52,7 @@ class Users
         return result;
     }
 
-    public record Post_Args(string Firstname, string Lastname, string Email, string Password); // har vi en void så blir det async task
+    public record Post_Args(string Firstname, string Lastname, string Email, string Password); // har vi en void sa blir det async task
     public static async Task Post(Post_Args body, Config config)
     {
         string query = "INSERT INTO users(first_name, last_name, email, password) VALUES(@firstname, @lastname, @email, @password)";
@@ -83,8 +85,8 @@ class Users
         return Results.Unauthorized();
     }
         string query = """
-        UPDATE users 
-        SET email = @email, password = @password 
+        UPDATE users
+        SET email = @email, password = @password
         WHERE id = @id
     """;
 
@@ -103,4 +105,3 @@ class Users
 
 }
 record User(string Firstname, string Lastname, string Email, string Password);
-

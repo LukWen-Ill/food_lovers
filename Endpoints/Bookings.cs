@@ -1,7 +1,8 @@
 using MySql.Data.MySqlClient;
 using MySqlX.XDevAPI.Common;
+using server.Configuration;
 
-namespace server;
+namespace server.Endpoints;
 
 public enum BookingStatus
 {
@@ -16,20 +17,20 @@ class Bookings
 
     // DTO FOR GET ALL BOOKINGS ENDPOINT
     public record GetAllData(
-             int BookingId,
-             DateTime TripStartDate,
-             DateTime TripEndDate,
-             int NumberOfTravelers,
-             BookingStatus Status,
-             int StopOrder,
-             DateTime Checkin,
-             DateTime Checkout,
-             string City,
-             string HotelName,
-             int RoomNumber,
-             string RoomType,
-             decimal PricePerNight
-     );
+            int BookingId,
+            DateTime TripStartDate,
+            DateTime TripEndDate,
+            int NumberOfTravelers,
+            BookingStatus Status,
+            int StopOrder,
+            DateTime Checkin,
+            DateTime Checkout,
+            string City,
+            string HotelName,
+            int RoomNumber,
+            string RoomType,
+            decimal PricePerNight
+    );
     // DTO FOR GET ALL PACKAGES FOR USER ENDPOINT
     public record Get_All_Packages_For_User(
         int BookingId,
@@ -94,7 +95,6 @@ class Bookings
 
 
 
-
     // GET ALL BOOKINGS
     public static async Task<IResult> GetAll(Config config, HttpContext ctx)
     {
@@ -108,7 +108,7 @@ class Bookings
         List<GetAllData> result = new();
 
         string query = """
-            SELECT 
+            SELECT
                 b.id as booking_id,
                 b.trip_start_date,
                 b.trip_end_date,
@@ -174,7 +174,7 @@ class Bookings
         return Results.Ok(result);
     }
 
-    // POST BOOKING 
+    // POST BOOKING
     public static async Task<IResult> Post(Post_Args body, Config config, HttpContext ctx)
     {
         // 1. must be logged in
@@ -306,7 +306,7 @@ class Bookings
         List<Get_All_Packages_For_User> result = new();
 
         const string query = """
-                SELECT 
+                SELECT
                     b.id,
                     b.user_id,
                     b.package_id,
@@ -429,15 +429,15 @@ class Bookings
         }
 
         string query = """
-        UPDATE bookings 
-        SET package_id = @package_id, 
-        checkin = @checkin, 
-        checkout = @checkout, 
-        number_of_travelers = 
-        @number_of_travelers, 
-        status = @status 
+        UPDATE bookings
+        SET package_id = @package_id,
+        checkin = @checkin,
+        checkout = @checkout,
+        number_of_travelers =
+        @number_of_travelers,
+        status = @status
         WHERE id = @id AND user_id = @user_id
-     """;
+        """;
 
         var parameters = new MySqlParameter[]
         {
@@ -467,25 +467,25 @@ class Bookings
 
     public static async Task<IResult> GetDetails(int id, Config config)
     {
-        // förbered en lista för att hålla resultat 
+        // forbered en lista for att halla resultat
         var details = new List<BookingDetails_Data>();
 
         using var conn = new MySqlConnection(config.db);
         await conn.OpenAsync();
 
         string query = """
-                SELECT 
-                b.id, 
+                SELECT
+                b.id,
                 b.status,
-                tp.name, 
-                c.name, 
-                d.city, 
-                h.name, 
+                tp.name,
+                c.name,
+                d.city,
+                h.name,
                 tp.price_per_person
-                FROM bookings b 
+                FROM bookings b
                 JOIN trip_packages tp ON b.package_id = tp.id
                 JOIN stops s ON tp.id = s.package_id
-                JOIN destinations d ON s.destination_id = d.id  
+                JOIN destinations d ON s.destination_id = d.id
                 JOIN countries c ON d.country_id = c.id
                 JOIN hotels h ON d.id = h.destination_id
                 WHERE b.id = @id
@@ -509,7 +509,7 @@ class Bookings
             ));
         }
 
-        // if sats om listan är tom 
+        // if sats om listan ar tom
         if (details.Count == 0)
         {
             return Results.NotFound(new { error = "Booking not found." });
@@ -519,4 +519,3 @@ class Bookings
     }
 
 }
-

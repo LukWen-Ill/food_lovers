@@ -1,7 +1,8 @@
 using MySql.Data.MySqlClient;
 using MySqlX.XDevAPI.Common;
+using server.Configuration;
 
-namespace server
+namespace server.Endpoints
 {
     public static class Searchings
     {
@@ -64,16 +65,16 @@ namespace server
         );
 
         public record HotelByID(
-          string Country,
-          string City,
-          int Id,
-          string HotelName,
-          int Stars,
-          decimal DistanceToCenter,
-          string Description,
-          int TotalRooms,
-          string RoomTypes
-      );
+        string Country,
+        string City,
+        int Id,
+        string HotelName,
+        int Stars,
+        decimal DistanceToCenter,
+        string Description,
+        int TotalRooms,
+        string RoomTypes
+        );
 
         public record AdminTrips(
         int Id,
@@ -142,13 +143,13 @@ namespace server
                 LEFT JOIN facilities AS f ON af.facility_id = f.id
                 JOIN rooms AS r ON r.hotel_id = h.id
                 JOIN room_types AS rt ON rt.id = r.roomtype_id
-                LEFT JOIN booked_rooms AS br 
-                    ON br.hotel_id = r.hotel_id 
+                LEFT JOIN booked_rooms AS br
+                    ON br.hotel_id = r.hotel_id
                     AND br.room_number = r.room_number
                 LEFT JOIN booking_stops AS bs
-                    ON br.booking_id = bs.booking_id 
+                    ON br.booking_id = bs.booking_id
                     AND br.stop_order = bs.stop_order
-                    AND bs.checkin < @checkout 
+                    AND bs.checkin < @checkout
                     AND bs.checkout > @checkin
                 WHERE br.booking_id IS NULL
                 AND LOWER(c.name) = LOWER(@country)
@@ -210,7 +211,7 @@ namespace server
             {
                 query += " HAVING SUM(rt.capacity) >= @total_travelers";
             }
-        
+
             query += " ORDER BY h.name ASC;";
             cmd.CommandText = query;
 
@@ -230,11 +231,6 @@ namespace server
             }
             return result;
         }
-
-        /// <summary>
-        /// Get all packages with optional filters.
-        /// </summary>
-
         public static async Task<List<PackageSearchResult>> GetAllPackagesFiltered(
             Config config,
             PackageFilterRequest filter)
@@ -242,7 +238,7 @@ namespace server
             List<PackageSearchResult> result = new();
 
             string query = """
-                SELECT 
+                SELECT
                     tp.id,
                     tp.name,
                     tp.description,
@@ -362,21 +358,21 @@ namespace server
             if (adminId is null)
 
             return Results.Unauthorized();
-            
+
             var result = new List<AdminHotelView>();
 
             using var conn = new MySqlConnection(config.db);
             await conn.OpenAsync();
 
             string query = """
-                SELECT 
+                SELECT
                     id,
                     destination_id,
                     name,
                     description,
                     stars,
                     distance_to_center
-                FROM hotels 
+                FROM hotels
             """;
 
             using var cmd = new MySqlCommand(query, conn);

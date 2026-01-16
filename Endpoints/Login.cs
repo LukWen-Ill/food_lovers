@@ -1,6 +1,7 @@
-namespace server;
+namespace server.Endpoints;
 
 using MySql.Data.MySqlClient;
+using server.Configuration;
 
 class Login
 {
@@ -25,7 +26,7 @@ class Login
         }
         return result;
     }
-    
+
 
 public record Post_Data(string Email, string Password);
 

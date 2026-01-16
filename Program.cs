@@ -1,6 +1,7 @@
 using Microsoft.VisualBasic;
 using MySql.Data.MySqlClient;
-using server;
+using server.Configuration;
+using server.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 // 127.0.0.1:3306 (default port)
@@ -27,6 +28,10 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+app.UseDefaultFiles();  // Serves index.html by default for root path
+app.UseStaticFiles();   // Enables serving static files from wwwroot
+
 app.UseSession();
 
 app.UseSwagger();
@@ -315,15 +320,15 @@ async Task db_reset_to_default(Config config)
         INSERT INTO users (id, first_name, last_name, email, password) VALUES
         (1, 'Anna', 'Svensson', 'anna@example.com', 'password123'),
         (2, 'Johan', 'Larsson', 'johan@example.com', 'password123'),
-        (3, 'Maria', 'Gonzalez', 'maria@example.com', 'password123');
-        (4, 'Lukas', 'Wennström', 'user', 'user')
+        (3, 'Maria', 'Gonzalez', 'maria@example.com', 'password123'),
+        (4, 'Lukas', 'Wennström', 'user@user.com', 'string');
 
         -- ===========================
         -- ADMINS
         -- ===========================
         INSERT INTO admins (id, email, password) VALUES 
-        (1, 'christian@example.com', '123');
-        (2, 'Lukas', 'Wennström', 'admin', 'admin')
+        (1, 'christian@example.com', '123'),
+        (2, 'admin@admin.com', 'string');
 
         -- ===========================
         -- COUNTRIES
@@ -359,7 +364,7 @@ async Task db_reset_to_default(Config config)
         (4, 'French Culinary Journey', '8 nights discovering Parisian patisseries and Lyonnaise cuisine.', 1499.00),
         (5, 'Bangkok Street Eats', '6 nights immersed in Thai street food and cooking classes.', 799.00),
         (6, 'Tapas Trail through Barcelona', '5 nights exploring Catalan tapas bars and seafood markets.', 1099.00);
-       
+        
         -- ===========================
         -- PACKAGE ITINERARIES
         -- ===========================

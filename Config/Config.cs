@@ -1,4 +1,4 @@
-namespace server
+namespace server.Configuration
 {
     public class Config
     {
