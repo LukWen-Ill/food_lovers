@@ -316,13 +316,14 @@ async Task db_reset_to_default(Config config)
         (1, 'Anna', 'Svensson', 'anna@example.com', 'password123'),
         (2, 'Johan', 'Larsson', 'johan@example.com', 'password123'),
         (3, 'Maria', 'Gonzalez', 'maria@example.com', 'password123');
+        (4, 'Lukas', 'Wennström', 'user', 'user')
 
         -- ===========================
         -- ADMINS
         -- ===========================
         INSERT INTO admins (id, email, password) VALUES 
         (1, 'christian@example.com', '123');
-
+        (2, 'Lukas', 'Wennström', 'admin', 'admin')
 
         -- ===========================
         -- COUNTRIES
